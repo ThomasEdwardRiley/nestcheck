@@ -267,12 +267,16 @@ def bs_param_dists(run_list, **kwargs):
         Size of x-axis grid for fgivenx plots.
     ny: int, optional
         Size of y-axis grid for fgivenx plots.
+    lines: bool
+        Plot contour lines?
     cache: str or None
         Root for fgivenx caching (no caching if None).
     parallel: bool, optional
         fgivenx parallel option.
     rasterize_contours: bool, optional
         fgivenx rasterize_contours option.
+    smooth: float, optional
+        fgivenx contour smoothing percentage.
     no_yticks: bool, optional
         Hide y-axis (probability density) ticks.
     tqdm_kwargs: dict, optional
@@ -295,9 +299,11 @@ def bs_param_dists(run_list, **kwargs):
     figsize = kwargs.pop('figsize', (6.4, 2))
     nx = kwargs.pop('nx', 100)
     ny = kwargs.pop('ny', nx)
+    lines = kwargs.pop('lines', True)
     cache_in = kwargs.pop('cache', None)
     parallel = kwargs.pop('parallel', True)
     rasterize_contours = kwargs.pop('rasterize_contours', True)
+    smooth = kwargs.pop('smooth', 0.0)
     no_yticks = kwargs.pop('no_yticks', False)
     tqdm_kwargs = kwargs.pop('tqdm_kwargs', {'disable': True})
     if kwargs:
@@ -331,6 +337,8 @@ def bs_param_dists(run_list, **kwargs):
                              parallel=parallel,
                              ftheta_lims=ftheta_lims, cache=cache,
                              n_simulate=n_simulate, nx=nx, ny=ny,
+                             lines=lines,
+                             smooth=smooth,
                              rasterize_contours=rasterize_contours,
                              mean_color=mean_colors[nrun],
                              colormap=colormaps[nrun],
@@ -348,7 +356,7 @@ def bs_param_dists(run_list, **kwargs):
         if no_yticks or nax>0:
             ax.set_yticks([])
         else:
-            pass#ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=5))
+            ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=5))
         ax.set_xlabel(labels[nax])
         if ax.is_first_col():
             ax.set_ylabel('probability density')
@@ -649,10 +657,11 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
     mean_color = kwargs.pop('mean_color', None)
     nx = kwargs.pop('nx', 100)
     ny = kwargs.pop('ny', nx)
+    lines = kwargs.pop('lines', False)
     cache_in = kwargs.pop('cache', None)
     parallel = kwargs.pop('parallel', True)
     rasterize_contours = kwargs.pop('rasterize_contours', True)
-    smooth = kwargs.pop('smooth', False)
+    smooth = kwargs.pop('smooth', 0.0)
     flip_axes = kwargs.pop('flip_axes', False)
     tqdm_kwargs = kwargs.pop('tqdm_kwargs', {'leave': False})
     if kwargs:
@@ -694,11 +703,12 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
             cbar = fgivenx.plot.plot(
                 y, ftheta_vals, np.swapaxes(pmf, 0, 1), axes[nf],
                 colors=colormap, rasterize_contours=rasterize_contours,
-                smooth=smooth)
+                smooth=smooth, lines=lines)
         else:
             cbar = fgivenx.plot.plot(
                 ftheta_vals, y, pmf, axes[nf], colors=colormap,
-                rasterize_contours=rasterize_contours, smooth=smooth)
+                rasterize_contours=rasterize_contours, smooth=smooth,
+                lines=lines)
     # Plot means
     # ----------
     if mean_color is not None:
@@ -816,7 +826,10 @@ else:
                                             ranges=[ranges[idx]],
                                             settings=settings)
 
-        bcknd.get1DDensity('param1').normalize(by='integral', in_place=True)
+        normalize = kwargs.pop('normalize', False)
+        if normalize:
+            bcknd.get1DDensity('param1').normalize(by='integral',
+                                                   in_place=True)
 
         return bcknd.get1DDensity('param1').Prob(x)
 
