@@ -249,6 +249,10 @@ def bs_param_dists(run_list, **kwargs):
         E.g. use lambda x: x[:, 0] to plot the first parameter.
     labels: list of strs, optional
         Labels for each ftheta.
+    kde_func: func
+        KDE function.
+    kde_kwargs: dict
+        Dictionary of KDE settings.
     ftheta_lims: list, optional
         Plot limits for each ftheta.
     n_simulate: int, optional
@@ -269,6 +273,8 @@ def bs_param_dists(run_list, **kwargs):
         fgivenx parallel option.
     rasterize_contours: bool, optional
         fgivenx rasterize_contours option.
+    no_yticks: bool, optional
+        Hide y-axis (probability density) ticks.
     tqdm_kwargs: dict, optional
         Keyword arguments to pass to the tqdm progress bar when it is used in
         fgivenx while plotting contours.
@@ -281,6 +287,8 @@ def bs_param_dists(run_list, **kwargs):
                                      lambda theta: theta[:, 1]])
     labels = kwargs.pop('labels', [r'$\theta_' + str(i + 1) + '$' for i in
                                    range(len(fthetas))])
+    kde_func = kwargs.pop('kde_func', weighted_1d_gaussian_kde)
+    kde_kwargs = kwargs.pop('kde_kwargs', None)
     ftheta_lims = kwargs.pop('ftheta_lims', [[-1, 1]] * len(fthetas))
     n_simulate = kwargs.pop('n_simulate', 100)
     random_seed = kwargs.pop('random_seed', 0)
@@ -290,6 +298,7 @@ def bs_param_dists(run_list, **kwargs):
     cache_in = kwargs.pop('cache', None)
     parallel = kwargs.pop('parallel', True)
     rasterize_contours = kwargs.pop('rasterize_contours', True)
+    no_yticks = kwargs.pop('no_yticks', False)
     tqdm_kwargs = kwargs.pop('tqdm_kwargs', {'disable': True})
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
@@ -317,6 +326,8 @@ def bs_param_dists(run_list, **kwargs):
             cache = None
         # add bs distribution plots
         cbar = plot_bs_dists(run, fthetas, axes[:len(fthetas)],
+                             kde_func=kde_func,
+                             kde_kwargs=kde_kwargs,
                              parallel=parallel,
                              ftheta_lims=ftheta_lims, cache=cache,
                              n_simulate=n_simulate, nx=nx, ny=ny,
@@ -334,10 +345,13 @@ def bs_param_dists(run_list, **kwargs):
                 [r'$1\sigma$', r'$2\sigma$', r'$3\sigma$'])
     # Format axis ticks and labels
     for nax, ax in enumerate(axes[:len(fthetas)]):
-        ax.set_yticks([])
+        if no_yticks or nax>0:
+            ax.set_yticks([])
+        else:
+            pass#ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=5))
         ax.set_xlabel(labels[nax])
         if ax.is_first_col():
-            ax.set_ylabel('probability')
+            ax.set_ylabel('probability density')
         # Prune final xtick label so it doesn't overlap with next plot
         prune = 'upper' if nax != len(fthetas) - 1 else None
         ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(
@@ -589,8 +603,12 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
         i.e. map every sample's theta vector (every row) to a scalar quantity.
         E.g. use lambda x: x[:, 0] to plot the first parameter.
     axes: list of matplotlib axis objects
+    kde_func: function, defaults to native nestcheck KDE function.
+        Function for Kernel Density Estimation.
     ftheta_lims: list, optional
         Plot limits for each ftheta.
+    kde_kwargs: dict
+        For GetDist, must be GetDist-compatible keywords for configuring KDE.
     n_simulate: int, optional
         Number of bootstrap replications to use for the fgivenx
         distributions.
@@ -624,6 +642,8 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
         For use in higher order functions.
     """
     ftheta_lims = kwargs.pop('ftheta_lims', [[-1, 1]] * len(fthetas))
+    kde_func = kwargs.pop('kde_func', weighted_1d_gaussian_kde)
+    kde_kwargs = kwargs.pop('kde_kwargs', None)
     n_simulate = kwargs.pop('n_simulate', 100)
     colormap = kwargs.pop('colormap', plt.get_cmap('Reds_r'))
     mean_color = kwargs.pop('mean_color', None)
@@ -663,8 +683,10 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
             cache = cache_in + '_' + str(nf)
         except TypeError:
             cache = None
+        kde_kwargs['idx'] = nf
         samp_kde = functools.partial(alternate_helper,
-                                     func=weighted_1d_gaussian_kde)
+                                     func=kde_func,
+                                     **kde_kwargs)
         y, pmf = fgivenx.drivers.compute_pmf(
             samp_kde, ftheta_vals, samples_array, ny=ny, cache=cache,
             parallel=parallel, tqdm_kwargs=tqdm_kwargs)
@@ -693,13 +715,16 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
     return cbar
 
 
-def alternate_helper(x, alt_samps, func=None):
+def alternate_helper(x, alt_samps, func=None, **kwargs):
     """Helper function for making fgivenx plots of functions with 2 array
     arguments of variable lengths."""
     alt_samps = alt_samps[~np.isnan(alt_samps)]
     arg1 = alt_samps[::2]
     arg2 = alt_samps[1::2]
-    return func(x, arg1, arg2)
+    if kwargs is not None:
+        return func(x, arg1, arg2, **kwargs)
+    else:
+        return func(x, arg1, arg2)
 
 
 def weighted_1d_gaussian_kde(x, samples, weights):
@@ -760,6 +785,40 @@ def weighted_1d_gaussian_kde(x, samples, weights):
     result = np.sum(energy * weights[:, np.newaxis], axis=0)
     return result
 
+
+try:
+    import getdist
+except ImportError:
+    pass # silently fail
+else:
+    def getdist_kde(x, samples, weights, **kwargs):
+        """
+        Implement the GetDist 1D Kernel Density Estimator.
+
+        GetDist executes boundary correction for density estimation near
+        the parameter limits. Limits are *required* for proper
+        GetDist KDE at parameter boundaries, and can be passed via the kwargs.
+
+        """
+        settings = kwargs.pop('settings', {'fine_bins': 1024,
+                                           'smooth_scale_1D': -1.0,
+                                           'boundary_correction_order': 1,
+                                           'mult_bias_correction_order': 1})
+
+        ranges = kwargs.pop('ranges', None)
+        if ranges is None:
+            raise ValueError('GetDist requires a list of ftheta limits.')
+
+        idx = kwargs.pop('idx', None)
+
+        bcknd = getdist.mcsamples.MCSamples(samples=samples,
+                                            weights=weights,
+                                            ranges=[ranges[idx]],
+                                            settings=settings)
+
+        bcknd.get1DDensity('param1').normalize(by='integral', in_place=True)
+
+        return bcknd.get1DDensity('param1').Prob(x)
 
 def rel_posterior_mass(logx, logl):
     """Calculate the relative posterior mass for some array of logx values
