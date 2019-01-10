@@ -16,7 +16,7 @@ import fgivenx
 import fgivenx.plot
 import nestcheck.error_analysis
 import nestcheck.ns_run_utils
-
+from matplotlib import gridspec
 
 def plot_run_nlive(method_names, run_dict, **kwargs):
     """Plot the allocations of live points as a function of logX for the input
@@ -296,6 +296,7 @@ def bs_param_dists(run_list, **kwargs):
     ftheta_lims = kwargs.pop('ftheta_lims', [[-1, 1]] * len(fthetas))
     n_simulate = kwargs.pop('n_simulate', 100)
     random_seed = kwargs.pop('random_seed', 0)
+    getdist_plotter = kwargs.pop('getdist_plotter', None)
     figsize = kwargs.pop('figsize', (6.4, 2))
     nx = kwargs.pop('nx', 100)
     ny = kwargs.pop('ny', nx)
@@ -316,11 +317,28 @@ def bs_param_dists(run_list, **kwargs):
         run_list = [run_list]
     assert len(labels) == len(fthetas), (
         'There should be the same number of axes and labels')
-    width_ratios = [40] * len(fthetas) + [1] * len(run_list)
-    fig, axes = plt.subplots(nrows=1, ncols=len(run_list) + len(fthetas),
-                             gridspec_kw={'wspace': 0.1,
-                                          'width_ratios': width_ratios},
-                             figsize=figsize)
+
+    if getdist_plotter is not None:
+        assert isinstance(getdist_plotter, getdist.plots.GetDistPlotter), \
+                'The GetDist plotter is of an invalid type.'
+
+    if getdist_plotter:
+        print('Using getdist.plots.GetDistPlotter.')
+        axes = [getdist_plotter.subplots[i,i] for i in range(len(fthetas))]
+        gs = gridspec.GridSpec(len(fthetas), len(fthetas),
+                               wspace=0.0, hspace=0.0)
+        gs_cb = gridspec.GridSpecFromSubplotSpec(1, len(run_list),
+                                    subplot_spec=gs[0,1],
+                                    wspace=0.05, hspace=0.1)
+                                    #left=0.2, right=0.2+len(run_list)*0.1,
+                                    #bottom=0.05, top=0.05)
+    else:
+        width_ratios = [40] * len(fthetas) + [1] * len(run_list)
+        fig, axes = plt.subplots(nrows=1, ncols=len(run_list) + len(fthetas),
+                                 gridspec_kw={'wspace': 0.1,
+                                              'width_ratios': width_ratios},
+                                 figsize=figsize)
+
     colormaps = ['Reds_r', 'Blues_r', 'Greys_r', 'Greens_r', 'Oranges_r']
     mean_colors = ['darkred', 'darkblue', 'darkgrey', 'darkgreen',
                    'darkorange']
@@ -343,29 +361,37 @@ def bs_param_dists(run_list, **kwargs):
                              mean_color=mean_colors[nrun],
                              colormap=colormaps[nrun],
                              tqdm_kwargs=tqdm_kwargs)
-        # add colorbar
-        colorbar_plot = plt.colorbar(cbar, cax=axes[len(fthetas) + nrun],
-                                     ticks=[1, 2, 3])
+        if getdist_plotter:
+            cax = getdist_plotter.fig.add_subplot(gs_cb[nrun])
+            colorbar_plot = plt.colorbar(cbar, cax=cax, ticks=[1, 2, 3])
+        else:
+            # add colorbar
+            colorbar_plot = plt.colorbar(cbar, cax=axes[len(fthetas) + nrun],
+                                         ticks=[1, 2, 3])
         colorbar_plot.solids.set_edgecolor('face')
         colorbar_plot.ax.set_yticklabels([])
         if nrun == len(run_list) - 1:
             colorbar_plot.ax.set_yticklabels(
                 [r'$1\sigma$', r'$2\sigma$', r'$3\sigma$'])
-    # Format axis ticks and labels
-    for nax, ax in enumerate(axes[:len(fthetas)]):
-        if no_yticks or nax>0:
-            ax.set_yticks([])
-        else:
-            ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=5))
-        ax.set_xlabel(labels[nax])
-        if ax.is_first_col():
-            ax.set_ylabel('probability density')
-        # Prune final xtick label so it doesn't overlap with next plot
-        prune = 'upper' if nax != len(fthetas) - 1 else None
-        ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(
-            nbins=5, prune=prune))
-    np.random.set_state(state)  # return to original random state
-    return fig
+    if not getdist_plotter:
+        # Format axis ticks and labels
+        for nax, ax in enumerate(axes[:len(fthetas)]):
+            if no_yticks or nax>0:
+                ax.set_yticks([])
+            else:
+                ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=5))
+            ax.set_xlabel(labels[nax])
+            if ax.is_first_col():
+                ax.set_ylabel('probability density')
+
+            ax.set_xlim(ftheta_lims[nax])
+            # Prune final xtick label so it doesn't overlap with next plot
+            prune = 'upper' if nax != len(fthetas) - 1 else None
+            ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(
+                nbins=5, prune=prune))
+        np.random.set_state(state)  # return to original random state
+
+    if fig: return fig
 
 
 def param_logx_diagram(run_list, **kwargs):
@@ -801,6 +827,8 @@ try:
 except ImportError:
     pass # silently fail
 else:
+    import getdist.plots
+
     def getdist_kde(x, samples, weights, **kwargs):
         """
         Implement the GetDist 1D Kernel Density Estimator.
