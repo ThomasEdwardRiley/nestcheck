@@ -323,13 +323,16 @@ def bs_param_dists(run_list, **kwargs):
                 'The GetDist plotter is of an invalid type.'
 
     if getdist_plotter:
-        print('Using getdist.plots.GetDistPlotter.')
+        print('nestcheck: Using :class:`getdist.plots.GetDistPlotter` '
+              'instance for parameter KDE.')
         axes = [getdist_plotter.subplots[i,i] for i in range(len(fthetas))]
         gs = gridspec.GridSpec(len(fthetas), len(fthetas),
                                wspace=0.0, hspace=0.0)
-        gs_cb = gridspec.GridSpecFromSubplotSpec(1, len(run_list),
+        # easier with matplotlib v3.0.2
+        gs_cb = gridspec.GridSpecFromSubplotSpec(3, 25,
                                     subplot_spec=gs[0,1],
-                                    wspace=0.05, hspace=0.1)
+                                    wspace=1.0, hspace=0.0,
+                                    height_ratios=[1,50,1])
                                     #left=0.2, right=0.2+len(run_list)*0.1,
                                     #bottom=0.05, top=0.05)
     else:
@@ -362,7 +365,7 @@ def bs_param_dists(run_list, **kwargs):
                              colormap=colormaps[nrun],
                              tqdm_kwargs=tqdm_kwargs)
         if getdist_plotter:
-            cax = getdist_plotter.fig.add_subplot(gs_cb[nrun])
+            cax = getdist_plotter.fig.add_subplot(gs_cb[1,5 + nrun])
             colorbar_plot = plt.colorbar(cbar, cax=cax, ticks=[1, 2, 3])
         else:
             # add colorbar
@@ -390,9 +393,10 @@ def bs_param_dists(run_list, **kwargs):
             ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(
                 nbins=5, prune=prune))
         np.random.set_state(state)  # return to original random state
-
-    if fig: return fig
-
+    try:
+        return fig
+    except NameError:
+        pass
 
 def param_logx_diagram(run_list, **kwargs):
     """Creates diagrams of a nested sampling run's evolution as it iterates
