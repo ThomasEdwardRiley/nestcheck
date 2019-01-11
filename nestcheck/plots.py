@@ -853,17 +853,19 @@ else:
 
         idx = kwargs.pop('idx', None)
 
-        bcknd = getdist.mcsamples.MCSamples(samples=samples,
+        bcknd = getdist.mcsamples.MCSamples(sampler='nested',
+                                            samples=samples,
                                             weights=weights,
-                                            ranges=[ranges[idx]],
+                                            names=['x'],
+                                            ranges=dict(x=ranges[idx]),
                                             settings=settings)
 
         normalize = kwargs.pop('normalize', False)
         if normalize:
-            bcknd.get1DDensity('param1').normalize(by='integral',
+            bcknd.get1DDensity('x').normalize(by='integral',
                                                    in_place=True)
 
-        return bcknd.get1DDensity('param1').Prob(x)
+        return bcknd.get1DDensity('x').Prob(x)
 
 def rel_posterior_mass(logx, logl):
     """Calculate the relative posterior mass for some array of logx values
