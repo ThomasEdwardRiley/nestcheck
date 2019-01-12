@@ -374,8 +374,16 @@ def bs_param_dists(run_list, **kwargs):
         colorbar_plot.solids.set_edgecolor('face')
         colorbar_plot.ax.set_yticklabels([])
         if nrun == len(run_list) - 1:
-            colorbar_plot.ax.set_yticklabels(
-                [r'$1\sigma$', r'$2\sigma$', r'$3\sigma$'])
+            try:
+                fontsize = getdist_plotter.settings.lab_fontsize
+            except AttributeError:
+                colorbar_plot.ax.set_yticklabels(
+                    [r'$1\sigma$', r'$2\sigma$', r'$3\sigma$'])
+            else:
+                colorbar_plot.ax.set_yticklabels(
+                    [r'$1\sigma$', r'$2\sigma$', r'$3\sigma$'],
+                    fontsize=fontsize)
+
     if not getdist_plotter:
         # Format axis ticks and labels
         for nax, ax in enumerate(axes[:len(fthetas)]):
