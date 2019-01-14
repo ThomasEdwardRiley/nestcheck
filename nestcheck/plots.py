@@ -318,9 +318,12 @@ def bs_param_dists(run_list, **kwargs):
     assert len(labels) == len(fthetas), (
         'There should be the same number of axes and labels')
 
-    if getdist_plotter is not None:
-        assert isinstance(getdist_plotter, getdist.plots.GetDistPlotter), \
-                'The GetDist plotter is of an invalid type.'
+    if getdist_plotter:
+        try:
+            assert isinstance(getdist_plotter, getdist.plots.GetDistPlotter),\
+                    'The GetDist plotter is of an invalid type.'
+        except NameError: # getdist not imported
+            getdist_plotter = None
 
     if getdist_plotter:
         print('nestcheck: Using :class:`getdist.plots.GetDistPlotter` '
