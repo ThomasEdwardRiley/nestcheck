@@ -305,7 +305,7 @@ def bs_param_dists(run_list, **kwargs):
     parallel = kwargs.pop('parallel', True)
     rasterize_contours = kwargs.pop('rasterize_contours', True)
     smooth = kwargs.pop('smooth', 0.0)
-    no_yticks = kwargs.pop('no_yticks', False)
+    no_yticks = kwargs.pop('no_yticks', True)
     tqdm_kwargs = kwargs.pop('tqdm_kwargs', {'disable': True})
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
@@ -354,6 +354,8 @@ def bs_param_dists(run_list, **kwargs):
             cache = cache_in + '_' + str(nrun)
         except TypeError:
             cache = None
+        if kde_kwargs:
+            kde_kwargs['run_idx'] = nrun
         # add bs distribution plots
         cbar = plot_bs_dists(run, fthetas, axes[:len(fthetas)],
                              kde_func=kde_func,
@@ -396,7 +398,7 @@ def bs_param_dists(run_list, **kwargs):
                 ax.yaxis.set_major_locator(matplotlib.ticker.MaxNLocator(nbins=5))
             ax.set_xlabel(labels[nax])
             if ax.is_first_col():
-                ax.set_ylabel('probability density')
+                ax.set_ylabel('Probability density')
 
             ax.set_xlim(ftheta_lims[nax])
             # Prune final xtick label so it doesn't overlap with next plot
@@ -717,7 +719,7 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
     for i in range(n_simulate):
         run_temp = nestcheck.error_analysis.bootstrap_resample_run(
             run, threads=threads)
-        w_temp = nestcheck.ns_run_utils.get_w_rel(run_temp, simulate=False)
+        w_temp = nestcheck.ns_run_utils.get_w_rel(run_temp, simulate=True)
         bs_samps.append((run_temp['theta'], w_temp))
     for nf, ftheta in enumerate(fthetas):
         # Make an array where each row contains one bootstrap replication's
@@ -843,7 +845,7 @@ except ImportError:
     pass # silently fail
 else:
     import getdist.plots
-
+    getdist.chains.print_load_details = False
     def getdist_kde(x, samples, weights, **kwargs):
         """
         Implement the GetDist 1D Kernel Density Estimator.
@@ -853,16 +855,21 @@ else:
         GetDist KDE at parameter boundaries, and can be passed via the kwargs.
 
         """
-        settings = kwargs.pop('settings', {'fine_bins': 1024,
+        settings = kwargs.get('settings', {'fine_bins': 1024,
                                            'smooth_scale_1D': -1.0,
                                            'boundary_correction_order': 1,
                                            'mult_bias_correction_order': 1})
 
-        ranges = kwargs.pop('ranges', None)
-        if ranges is None:
-            raise ValueError('GetDist requires a list of ftheta limits.')
+        try:
+            settings = settings[kwargs.get('run_idx')]
+        except KeyError:
+            pass
 
-        idx = kwargs.pop('idx', None)
+        ranges = kwargs.get('ranges')
+        if ranges is None:
+            raise ValueError('Supply parameter bounds for KDE.')
+
+        idx = kwargs.get('idx')
 
         bcknd = getdist.mcsamples.MCSamples(sampler='nested',
                                             samples=samples,
@@ -871,7 +878,7 @@ else:
                                             ranges=dict(x=ranges[idx]),
                                             settings=settings)
 
-        normalize = kwargs.pop('normalize', False)
+        normalize = kwargs.get('normalize', False)
         if normalize:
             bcknd.get1DDensity('x').normalize(by='integral',
                                                    in_place=True)

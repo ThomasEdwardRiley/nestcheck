@@ -148,6 +148,10 @@ def run_bootstrap_values(ns_run, estimator_list, **kwargs):
     random_seeds: list, optional
         list of random_seed arguments for bootstrap_resample_run.
         Defaults to range(n_simulate) in order to give reproducible results.
+    simulate_weights: bool, optional, defaults to ``False``
+        Simulate weights numerically for each bootstrap replication?
+        Set to ``True`` to simulate combination of prior mass differencing
+        errors and path errors.
 
     Returns
     -------
@@ -159,6 +163,7 @@ def run_bootstrap_values(ns_run, estimator_list, **kwargs):
     flip_skew = kwargs.pop('flip_skew', True)
     n_simulate = kwargs.pop('n_simulate')  # No default, must specify
     random_seeds = kwargs.pop('random_seeds', range(n_simulate))
+    simulate_weights = kwargs.pop('simulate_weights', False)
     assert len(random_seeds) == n_simulate
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
@@ -169,7 +174,7 @@ def run_bootstrap_values(ns_run, estimator_list, **kwargs):
             ns_run, threads=threads, ninit_sep=ninit_sep,
             random_seed=random_seed)
         bs_values[:, i] = nestcheck.ns_run_utils.run_estimators(
-            ns_run_temp, estimator_list)
+            ns_run_temp, estimator_list, simulate=simulate_weights)
         del ns_run_temp
     if flip_skew:
         estimator_means = np.mean(bs_values, axis=1)

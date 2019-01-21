@@ -78,8 +78,8 @@ def write_run_output(run, **kwargs):
     root = os.path.join(run['output']['base_dir'], run['output']['file_root'])
     if write_dead:
         samples = run_dead_birth_array(run)
-        np.savetxt(root + '_dead-birth.txt', samples, fmt=fmt)
-        np.savetxt(root + '_dead.txt', samples[:, :-1], fmt=fmt)
+        np.savetxt(root + 'dead-birth.txt', samples, fmt=fmt)
+        np.savetxt(root + 'dead.txt', samples[:, :-1], fmt=fmt)
     if equals or posteriors:
         w_rel = nestcheck.ns_run_utils.get_w_rel(run)
         post_arr = np.zeros((run['theta'].shape[0], run['theta'].shape[1] + 2))
