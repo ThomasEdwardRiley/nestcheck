@@ -719,7 +719,7 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
     for i in range(n_simulate):
         run_temp = nestcheck.error_analysis.bootstrap_resample_run(
             run, threads=threads)
-        w_temp = nestcheck.ns_run_utils.get_w_rel(run_temp, simulate=True)
+        w_temp = nestcheck.ns_run_utils.get_w_rel(run_temp, simulate=False)
         bs_samps.append((run_temp['theta'], w_temp))
     for nf, ftheta in enumerate(fthetas):
         # Make an array where each row contains one bootstrap replication's
