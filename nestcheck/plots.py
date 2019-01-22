@@ -267,6 +267,8 @@ def bs_param_dists(run_list, **kwargs):
         Size of x-axis grid for fgivenx plots.
     ny: int, optional
         Size of y-axis grid for fgivenx plots.
+    scale_ymax: float, optional
+        Scale the maximum probability density at which the pmf is computed.
     lines: bool
         Plot contour lines?
     cache: str or None
@@ -302,6 +304,7 @@ def bs_param_dists(run_list, **kwargs):
     figsize = kwargs.pop('figsize', (6.4, 2))
     nx = kwargs.pop('nx', 100)
     ny = kwargs.pop('ny', nx)
+    scale_ymax = kwargs.pop('scale_ymax', 1.0)
     lines = kwargs.pop('lines', True)
     cache_in = kwargs.pop('cache', None)
     parallel = kwargs.pop('parallel', True)
@@ -366,7 +369,7 @@ def bs_param_dists(run_list, **kwargs):
                              parallel=parallel,
                              ftheta_lims=ftheta_lims, cache=cache,
                              n_simulate=n_simulate, nx=nx, ny=ny,
-                             lines=lines,
+                             scale_ymax=scale_ymax, lines=lines,
                              smooth=smooth,
                              rasterize_contours=rasterize_contours,
                              mean_color=mean_colors[nrun],
@@ -745,19 +748,19 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
         samp_kde = functools.partial(alternate_helper,
                                      func=kde_func,
                                      **kde_kwargs)
-        
-        fsamps = compute_samples(samp_kde, ftheta_vals, samples_array,
-                                 weights=weights, ntrim=ntrim,
-                                 parallel=parallel, cache=cache,
-                                 tqdm_kwargs=tqdm_kwargs)
-        
+
+        fsamps = fgivenx.drivers.compute_samples(samp_kde, ftheta_vals,
+                                                 samples_array,
+                                                 parallel=parallel, cache=cache,
+                                                 tqdm_kwargs=tqdm_kwargs)
+
         ymin = fsamps[~np.isnan(fsamps)].min(axis=None)
         ymax = fsamps[~np.isnan(fsamps)].max(axis=None)
         y = np.linspace(ymin, ymax*scale_ymax, ny)
 
         pmf = fgivenx.mass.compute_pmf(fsamps, y, parallel=parallel,
                                        cache=cache, tqdm_kwargs=tqdm_kwargs)
-        
+
         if flip_axes:
             cbar = fgivenx.plot.plot(
                 y, ftheta_vals, np.swapaxes(pmf, 0, 1), axes[nf],
