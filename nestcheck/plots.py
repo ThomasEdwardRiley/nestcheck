@@ -675,6 +675,8 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
         Size of x-axis grid for fgivenx plots.
     ny: int, optional
         Size of y-axis grid for fgivenx plots.
+    scale_ymax: float, optional
+        Scale the maximum probability density at which the pmf is computed.
     cache: str or None
         Root for fgivenx caching (no caching if None).
     parallel: bool, optional
@@ -703,6 +705,7 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
     mean_color = kwargs.pop('mean_color', None)
     nx = kwargs.pop('nx', 100)
     ny = kwargs.pop('ny', nx)
+    scale_ymax = kwargs.pop('scale_ymax', 1.0)
     lines = kwargs.pop('lines', False)
     cache_in = kwargs.pop('cache', None)
     parallel = kwargs.pop('parallel', True)
@@ -742,9 +745,19 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
         samp_kde = functools.partial(alternate_helper,
                                      func=kde_func,
                                      **kde_kwargs)
-        y, pmf = fgivenx.drivers.compute_pmf(
-            samp_kde, ftheta_vals, samples_array, ny=ny, cache=cache,
-            parallel=parallel, tqdm_kwargs=tqdm_kwargs)
+        
+        fsamps = compute_samples(samp_kde, ftheta_vals, samples_array,
+                                 weights=weights, ntrim=ntrim,
+                                 parallel=parallel, cache=cache,
+                                 tqdm_kwargs=tqdm_kwargs)
+        
+        ymin = fsamps[~numpy.isnan(fsamps)].min(axis=None)
+        ymax = fsamps[~numpy.isnan(fsamps)].max(axis=None)
+        y = numpy.linspace(ymin, ymax*scale_ymax, ny)
+
+        pmf = fgivenx.mass.compute_pmf(fsamps, y, parallel=parallel,
+                                       cache=cache, tqdm_kwargs=tqdm_kwargs)
+        
         if flip_axes:
             cbar = fgivenx.plot.plot(
                 y, ftheta_vals, np.swapaxes(pmf, 0, 1), axes[nf],
