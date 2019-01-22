@@ -751,9 +751,9 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
                                  parallel=parallel, cache=cache,
                                  tqdm_kwargs=tqdm_kwargs)
         
-        ymin = fsamps[~numpy.isnan(fsamps)].min(axis=None)
-        ymax = fsamps[~numpy.isnan(fsamps)].max(axis=None)
-        y = numpy.linspace(ymin, ymax*scale_ymax, ny)
+        ymin = fsamps[~np.isnan(fsamps)].min(axis=None)
+        ymax = fsamps[~np.isnan(fsamps)].max(axis=None)
+        y = np.linspace(ymin, ymax*scale_ymax, ny)
 
         pmf = fgivenx.mass.compute_pmf(fsamps, y, parallel=parallel,
                                        cache=cache, tqdm_kwargs=tqdm_kwargs)
