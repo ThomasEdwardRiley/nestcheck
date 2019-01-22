@@ -279,6 +279,8 @@ def bs_param_dists(run_list, **kwargs):
         fgivenx contour smoothing percentage.
     no_yticks: bool, optional
         Hide y-axis (probability density) ticks.
+    no_means: bool, optional
+        Hide mean lines? Default is `False`.
     tqdm_kwargs: dict, optional
         Keyword arguments to pass to the tqdm progress bar when it is used in
         fgivenx while plotting contours.
@@ -306,6 +308,7 @@ def bs_param_dists(run_list, **kwargs):
     rasterize_contours = kwargs.pop('rasterize_contours', True)
     smooth = kwargs.pop('smooth', 0.0)
     no_yticks = kwargs.pop('no_yticks', True)
+    no_means = kwargs.pop('no_means', False)
     tqdm_kwargs = kwargs.pop('tqdm_kwargs', {'disable': True})
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
@@ -335,7 +338,7 @@ def bs_param_dists(run_list, **kwargs):
         gs_cb = gridspec.GridSpecFromSubplotSpec(3, 25,
                                     subplot_spec=gs[0,1],
                                     wspace=1.0, hspace=0.0,
-                                    height_ratios=[1,50,1])
+                                    height_ratios=[1,3,1])
                                     #left=0.2, right=0.2+len(run_list)*0.1,
                                     #bottom=0.05, top=0.05)
     else:
@@ -346,8 +349,8 @@ def bs_param_dists(run_list, **kwargs):
                                  figsize=figsize)
 
     colormaps = ['Reds_r', 'Blues_r', 'Greys_r', 'Greens_r', 'Oranges_r']
-    mean_colors = ['darkred', 'darkblue', 'darkgrey', 'darkgreen',
-                   'darkorange']
+    mean_colors = ([None]*len(colormaps) if no_means else \
+                ['darkred', 'darkblue', 'darkgrey', 'darkgreen', 'darkorange'])
     # plot in reverse order so reds are final plot and always on top
     for nrun, run in reversed(list(enumerate(run_list))):
         try:
