@@ -258,6 +258,10 @@ def bs_param_dists(run_list, **kwargs):
     n_simulate: int, optional
         Number of bootstrap replications to be used for the fgivenx
         distributions.
+    simulate_weights: bool, optional, defaults to ``False``
+        Simulate weights numerically for each bootstrap replication?
+        Set to ``True`` to simulate combination of prior mass differencing
+        errors and path errors.
     random_seed: int, optional
         Seed to make sure results are consistent and fgivenx caching can be
         used.
@@ -299,6 +303,7 @@ def bs_param_dists(run_list, **kwargs):
     kde_kwargs = kwargs.pop('kde_kwargs', None)
     ftheta_lims = kwargs.pop('ftheta_lims', [[-1, 1]] * len(fthetas))
     n_simulate = kwargs.pop('n_simulate', 100)
+    simulate_weights = kwargs.pop('simulate_weights', False)
     random_seed = kwargs.pop('random_seed', 0)
     getdist_plotter = kwargs.pop('getdist_plotter', None)
     figsize = kwargs.pop('figsize', (6.4, 2))
@@ -368,7 +373,9 @@ def bs_param_dists(run_list, **kwargs):
                              kde_kwargs=kde_kwargs,
                              parallel=parallel,
                              ftheta_lims=ftheta_lims, cache=cache,
-                             n_simulate=n_simulate, nx=nx, ny=ny,
+                             n_simulate=n_simulate,
+                             simulate_weights=simulate_weights,
+                             nx=nx, ny=ny,
                              scale_ymax=scale_ymax, lines=lines,
                              smooth=smooth,
                              rasterize_contours=rasterize_contours,
@@ -376,7 +383,7 @@ def bs_param_dists(run_list, **kwargs):
                              colormap=colormaps[nrun],
                              tqdm_kwargs=tqdm_kwargs)
         if getdist_plotter:
-            cax = getdist_plotter.fig.add_subplot(gs_cb[1,5 + nrun])
+            cax = getdist_plotter.fig.add_subplot(gs_cb[1,8 + nrun])
             colorbar_plot = plt.colorbar(cbar, cax=cax, ticks=[1, 2, 3])
         else:
             # add colorbar
@@ -669,6 +676,10 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
     n_simulate: int, optional
         Number of bootstrap replications to use for the fgivenx
         distributions.
+    simulate_weights: bool, optional, defaults to ``False``
+        Simulate weights numerically for each bootstrap replication?
+        Set to ``True`` to simulate combination of prior mass differencing
+        errors and path errors.
     colormap: matplotlib colormap
         Colors to plot fgivenx distribution.
     mean_color: matplotlib color as str
@@ -704,6 +715,7 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
     kde_func = kwargs.pop('kde_func', weighted_1d_gaussian_kde)
     kde_kwargs = kwargs.pop('kde_kwargs', None)
     n_simulate = kwargs.pop('n_simulate', 100)
+    simulate_weights = kwargs.pop('simulate_weights', False)
     colormap = kwargs.pop('colormap', plt.get_cmap('Reds_r'))
     mean_color = kwargs.pop('mean_color', None)
     nx = kwargs.pop('nx', 100)
@@ -728,7 +740,8 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
     for i in range(n_simulate):
         run_temp = nestcheck.error_analysis.bootstrap_resample_run(
             run, threads=threads)
-        w_temp = nestcheck.ns_run_utils.get_w_rel(run_temp, simulate=False)
+        w_temp = nestcheck.ns_run_utils.get_w_rel(run_temp,
+                                                  simulate=simulate_weights)
         bs_samps.append((run_temp['theta'], w_temp))
     for nf, ftheta in enumerate(fthetas):
         # Make an array where each row contains one bootstrap replication's
