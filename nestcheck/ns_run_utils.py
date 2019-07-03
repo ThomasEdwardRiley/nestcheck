@@ -12,7 +12,8 @@ import numpy as np
 import scipy.special
 
 
-def run_estimators(ns_run, estimator_list, simulate=False):
+def run_estimators(ns_run, estimator_list, simulate=False,
+                    random_seed=None):
     """Calculates values of list of quantities (such as the Bayesian evidence
     or mean of parameters) for a single nested sampling run.
 
@@ -32,10 +33,20 @@ def run_estimators(ns_run, estimator_list, simulate=False):
     output: 1d numpy array
         Calculation result for each estimator in estimator_list.
     """
+    if random_seed is not None:
+        # save the random state so we don't affect other bits of the code
+        state = np.random.get_state()
+        np.random.seed(random_seed)
+
     logw = get_logw(ns_run, simulate=simulate)
     output = np.zeros(len(estimator_list))
     for i, est in enumerate(estimator_list):
         output[i] = est(ns_run, logw=logw)
+
+    if random_seed is not None:
+        # if we have used a random seed then return to the original state
+        np.random.set_state(state)
+
     return output
 
 

@@ -164,6 +164,10 @@ def run_bootstrap_values(ns_run, estimator_list, **kwargs):
     n_simulate = kwargs.pop('n_simulate')  # No default, must specify
     random_seeds = kwargs.pop('random_seeds', range(n_simulate))
     simulate_weights = kwargs.pop('simulate_weights', False)
+    if simulate_weights:
+        random_seed_weights = np.arange(n_simulate,2*n_simulate)
+    else:
+        random_seed_weights = [None]*n_simulate
     assert len(random_seeds) == n_simulate
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
@@ -174,7 +178,8 @@ def run_bootstrap_values(ns_run, estimator_list, **kwargs):
             ns_run, threads=threads, ninit_sep=ninit_sep,
             random_seed=random_seed)
         bs_values[:, i] = nestcheck.ns_run_utils.run_estimators(
-            ns_run_temp, estimator_list, simulate=simulate_weights)
+            ns_run_temp, estimator_list, simulate=simulate_weights,
+            random_seed=random_seed_weights[i])
         del ns_run_temp
     if flip_skew:
         estimator_means = np.mean(bs_values, axis=1)
