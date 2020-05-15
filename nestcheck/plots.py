@@ -232,7 +232,7 @@ def kde_plot_df(df, xlims=None, **kwargs):
     return fig
 
 
-def bs_param_dists(run_list, **kwargs):
+def bs_param_dists(run_list, fthetas, ftheta_lims, **kwargs):
     """Creates posterior distributions and their bootstrap error functions for
     input runs and estimators.
 
@@ -243,18 +243,26 @@ def bs_param_dists(run_list, **kwargs):
     ----------
     run_list: dict or list of dicts
         Nested sampling run(s) to plot.
-    fthetas: list of functions, optional
-        Quantities to plot. Each must map a 2d theta array to 1d ftheta array -
-        i.e. map every sample's theta vector (every row) to a scalar quantity.
-        E.g. use lambda x: x[:, 0] to plot the first parameter.
+    fthetas: list of functions or list of list of functions
+        Quantities to plot. Each function must map a 2d theta array to 1d
+        ftheta array - i.e. map every sample's theta vector (every row) to a
+        scalar quantity. E.g. use ``lambda x: x[:, 0]`` to plot the first
+        parameter. Each run can have a unique list of functions, or a single
+        list of functions might be sufficient for all runs. The latter case is
+        applicable for repeats of a sampling process, whilst the former might
+        be the case for different posterior distributions (e.g., different
+        models with some subset of shared parameters to be plotted). If each
+        run has it's own list, then ``fthetas[0]`` is the list of functions
+        associated with run ``run_list[0]``, and so on.
+    ftheta_lims: list of tuples or list of list of tuples
+        Plot limits for each ftheta. See the ``fthetas`` description above
+        to understand the structure of the input in relation to runs.
     labels: list of strs, optional
         Labels for each ftheta.
     kde_func: func
         KDE function.
     kde_kwargs: dict
-        Dictionary of KDE settings.
-    ftheta_lims: list, optional
-        Plot limits for each ftheta.
+        List of dictionaries of KDE settings, one per run.
     n_simulate: int, optional
         Number of bootstrap replications to be used for the fgivenx
         distributions.
@@ -295,13 +303,64 @@ def bs_param_dists(run_list, **kwargs):
     -------
     fig: matplotlib figure
     """
-    fthetas = kwargs.pop('fthetas', [lambda theta: theta[:, 0],
-                                     lambda theta: theta[:, 1]])
+    def check(funcs):
+        if not isinstance(funcs, list):
+            raise TypeError('Functions ftheta must be contained in a list')
+        for ftheta in funcs:
+            if not callable(ftheta):
+                raise TypeError('Functions ftheta must at least be callable.')
+
+    if isinstance(fthetas[0], list):
+        num_funcs = len(fthetas[0])
+        if num_funcs == 0:
+            raise ValueError('No ftheta functions supplied')
+
+        for _fthetas in fthetas:
+            check(_fthetas)
+            if len(_fthetas) != num_funcs:
+                raise ValueError('Number of ftheta functions unequal across '
+                                 'runs.')
+    elif isinstance(fthetas, list):
+        num_funcs = len(fthetas)
+        if num_funcs == 0:
+            raise ValueError('No ftheta functions supplied')
+
+        check(fthetas)
+        fthetas = fthetas * len(run_list)
+    else:
+        raise TypeError('Invalid specification of ftheta functions.')
+
+    def check(objs):
+        if not isinstance(objs, list):
+            raise TypeError('Function limit pairs must be contained in a list.')
+        elif len(objs) != num_funcs:
+            raise ValueError('Mismatch between number of ftheta functions '
+                             'and limit pairs.')
+        for obj in objs:
+            try:
+                if len(obj) != 2:
+                    raise TypeError
+            except TypeError:
+                raise TypeError('Limits must be supplied in indexable containers '
+                                'of length two.')
+            else:
+                if obj[0] >= obj[1]:
+                    raise ValueError('Each pair of limits must be ordered and '
+                                     'pair members cannot be equal.')
+
+    if isinstance(ftheta_lims[0], list):
+        for _ftheta_lims in ftheta_lims:
+            check(_ftheta_lims)
+    elif isinstance(ftheta_lims, list):
+        check(ftheta_lims)
+        ftheta_lims = ftheta_lims * len(run_list)
+    else:
+        raise TypeError('Invalid specification of ftheta function limits.')
+
     labels = kwargs.pop('labels', [r'$\theta_' + str(i + 1) + '$' for i in
-                                   range(len(fthetas))])
+                                   range(num_funcs)])
     kde_func = kwargs.pop('kde_func', weighted_1d_gaussian_kde)
-    kde_kwargs = kwargs.pop('kde_kwargs', None)
-    ftheta_lims = kwargs.pop('ftheta_lims', [[-1, 1]] * len(fthetas))
+    kde_kwargs = kwargs.pop('kde_kwargs', [None] * len(run_list))
     n_simulate = kwargs.pop('n_simulate', 100)
     simulate_weights = kwargs.pop('simulate_weights', False)
     random_seed = kwargs.pop('random_seed', 0)
@@ -339,8 +398,8 @@ def bs_param_dists(run_list, **kwargs):
     if getdist_plotter:
         print('nestcheck: Using :class:`getdist.plots.GetDistPlotter` '
               'instance for parameter KDE.')
-        axes = [getdist_plotter.subplots[i,i] for i in range(len(fthetas))]
-        gs = gridspec.GridSpec(len(fthetas), len(fthetas),
+        axes = [getdist_plotter.subplots[i,i] for i in range(num_funcs)]
+        gs = gridspec.GridSpec(num_funcs, num_funcs,
                                wspace=0.0, hspace=0.0)
         # easier with matplotlib v3.0.2
         gs_cb = gridspec.GridSpecFromSubplotSpec(3, 25,
@@ -350,8 +409,8 @@ def bs_param_dists(run_list, **kwargs):
                                     #left=0.2, right=0.2+len(run_list)*0.1,
                                     #bottom=0.05, top=0.05)
     else:
-        width_ratios = [40] * len(fthetas) + [1] * len(run_list)
-        fig, axes = plt.subplots(nrows=1, ncols=len(run_list) + len(fthetas),
+        width_ratios = [40] * num_funcs + [1] * len(run_list)
+        fig, axes = plt.subplots(nrows=1, ncols=len(run_list) + num_funcs,
                                  gridspec_kw={'wspace': 0.1,
                                               'width_ratios': width_ratios},
                                  figsize=figsize)
@@ -365,14 +424,14 @@ def bs_param_dists(run_list, **kwargs):
             cache = cache_in + '_' + str(nrun)
         except TypeError:
             cache = None
-        if kde_kwargs:
-            kde_kwargs['run_idx'] = nrun
         # add bs distribution plots
-        cbar = plot_bs_dists(run, fthetas, axes[:len(fthetas)],
+        cbar = plot_bs_dists(run, fthetas[nrun],
+                             axes[:num_funcs],
                              kde_func=kde_func,
-                             kde_kwargs=kde_kwargs,
+                             kde_kwargs=kde_kwargs[nrun],
                              parallel=parallel,
-                             ftheta_lims=ftheta_lims, cache=cache,
+                             ftheta_lims=ftheta_lims[nrun],
+                             cache=cache,
                              n_simulate=n_simulate,
                              simulate_weights=simulate_weights,
                              nx=nx, ny=ny,
@@ -387,7 +446,7 @@ def bs_param_dists(run_list, **kwargs):
             colorbar_plot = plt.colorbar(cbar, cax=cax, ticks=[1, 2, 3])
         else:
             # add colorbar
-            colorbar_plot = plt.colorbar(cbar, cax=axes[len(fthetas) + nrun],
+            colorbar_plot = plt.colorbar(cbar, cax=axes[num_funcs + nrun],
                                          ticks=[1, 2, 3])
         colorbar_plot.solids.set_edgecolor('face')
         colorbar_plot.ax.set_yticklabels([])
@@ -404,7 +463,7 @@ def bs_param_dists(run_list, **kwargs):
 
     if not getdist_plotter:
         # Format axis ticks and labels
-        for nax, ax in enumerate(axes[:len(fthetas)]):
+        for nax, ax in enumerate(axes[:num_funcs]):
             if no_yticks or nax>0:
                 ax.set_yticks([])
             else:
@@ -415,7 +474,7 @@ def bs_param_dists(run_list, **kwargs):
 
             ax.set_xlim(ftheta_lims[nax])
             # Prune final xtick label so it doesn't overlap with next plot
-            prune = 'upper' if nax != len(fthetas) - 1 else None
+            prune = 'upper' if nax != num_funcs - 1 else None
             ax.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(
                 nbins=5, prune=prune))
         np.random.set_state(state)  # return to original random state
@@ -653,7 +712,7 @@ def param_logx_diagram(run_list, **kwargs):
 # ----------------
 
 
-def plot_bs_dists(run, fthetas, axes, **kwargs):
+def plot_bs_dists(run, fthetas, axes, ftheta_lims, **kwargs):
     """Helper function for plotting uncertainties on posterior distributions
     using bootstrap resamples and the fgivenx module. Used by bs_param_dists
     and param_logx_diagram.
@@ -711,7 +770,6 @@ def plot_bs_dists(run, fthetas, axes, **kwargs):
     cbar: matplotlib colorbar
         For use in higher order functions.
     """
-    ftheta_lims = kwargs.pop('ftheta_lims', [[-1, 1]] * len(fthetas))
     kde_func = kwargs.pop('kde_func', weighted_1d_gaussian_kde)
     kde_kwargs = kwargs.pop('kde_kwargs', None)
     n_simulate = kwargs.pop('n_simulate', 100)
@@ -891,11 +949,6 @@ else:
                                            'smooth_scale_1D': -1.0,
                                            'boundary_correction_order': 1,
                                            'mult_bias_correction_order': 1})
-
-        try:
-            settings = settings[kwargs.get('run_idx')]
-        except KeyError:
-            pass
 
         ranges = kwargs.get('ranges')
         if ranges is None:
