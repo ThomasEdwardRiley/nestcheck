@@ -385,7 +385,7 @@ def bs_param_dists(run_list, fthetas, ftheta_lims, **kwargs):
     np.random.seed(random_seed)
     if not isinstance(run_list, list):
         run_list = [run_list]
-    assert len(labels) == len(fthetas), (
+    assert len(labels) == num_funcs, (
         'There should be the same number of axes and labels')
 
     if getdist_plotter:
@@ -396,8 +396,8 @@ def bs_param_dists(run_list, fthetas, ftheta_lims, **kwargs):
             getdist_plotter = None
 
     if getdist_plotter:
-        print('nestcheck: Using :class:`getdist.plots.GetDistPlotter` '
-              'instance for parameter KDE.')
+        print('nestcheck: Using getdist.plots.GetDistPlotter '
+              'instance to display parameter density functions...')
         axes = [getdist_plotter.subplots[i,i] for i in range(num_funcs)]
         gs = gridspec.GridSpec(num_funcs, num_funcs,
                                wspace=0.0, hspace=0.0)
@@ -405,7 +405,7 @@ def bs_param_dists(run_list, fthetas, ftheta_lims, **kwargs):
         gs_cb = gridspec.GridSpecFromSubplotSpec(3, 25,
                                     subplot_spec=gs[0,1],
                                     wspace=1.0, hspace=0.0,
-                                    height_ratios=[1,3,1])
+                                    height_ratios=[0.5,3,1.5])
                                     #left=0.2, right=0.2+len(run_list)*0.1,
                                     #bottom=0.05, top=0.05)
     else:
@@ -442,7 +442,7 @@ def bs_param_dists(run_list, fthetas, ftheta_lims, **kwargs):
                              colormap=colormaps[nrun],
                              tqdm_kwargs=tqdm_kwargs)
         if getdist_plotter:
-            cax = getdist_plotter.fig.add_subplot(gs_cb[1,8 + nrun])
+            cax = getdist_plotter.fig.add_subplot(gs_cb[1,4 + nrun])
             colorbar_plot = plt.colorbar(cbar, cax=cax, ticks=[1, 2, 3])
         else:
             # add colorbar
