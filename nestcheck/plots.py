@@ -326,7 +326,7 @@ def bs_param_dists(run_list, fthetas, ftheta_lims, **kwargs):
             raise ValueError('No ftheta functions supplied')
 
         check(fthetas)
-        fthetas = fthetas * len(run_list)
+        fthetas = [fthetas] * len(run_list)
     else:
         raise TypeError('Invalid specification of ftheta functions.')
 
@@ -353,9 +353,10 @@ def bs_param_dists(run_list, fthetas, ftheta_lims, **kwargs):
             check(_ftheta_lims)
     elif isinstance(ftheta_lims, list):
         check(ftheta_lims)
-        ftheta_lims = ftheta_lims * len(run_list)
+        ftheta_lims = [ftheta_lims] * len(run_list)
     else:
         raise TypeError('Invalid specification of ftheta function limits.')
+
 
     labels = kwargs.pop('labels', [r'$\theta_' + str(i + 1) + '$' for i in
                                    range(num_funcs)])
@@ -418,6 +419,7 @@ def bs_param_dists(run_list, fthetas, ftheta_lims, **kwargs):
     colormaps = ['Reds_r', 'Blues_r', 'Greys_r', 'Greens_r', 'Oranges_r']
     mean_colors = ([None]*len(colormaps) if no_means else \
                 ['darkred', 'darkblue', 'darkgrey', 'darkgreen', 'darkorange'])
+
     # plot in reverse order so reds are final plot and always on top
     for nrun, run in reversed(list(enumerate(run_list))):
         try:
